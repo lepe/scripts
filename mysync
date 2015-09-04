@@ -1,0 +1,73 @@
+#!/bin/bash
+# @since Oct 22, 2009
+# @ver   May 23, 2012
+# 
+####### RESULTS EXPLANATION ############
+# The first character indicates what is happening to the file:
+# 
+# < means that a file is being transferred to the remote host (sent).
+# > means that a file is being transferred to the local host (received).
+# c means that a local change/creation is occurring for the item (such as the creation of a directory or the changing of a symlink, etc.).
+# h means that the item is a hard link to another item (requires --hard-links).
+# . means that the item is not being updated (though it might have attributes that are being modified).
+# * means that the rest of the itemized-output area contains a message (e.g. "deleting").
+#
+# The second character indicates what type of directory entry it is. Specifically:
+# 
+# f for file
+# d for directory
+# L for symbolic link
+# D for device
+# S for special file (e.g. socket or fifo)
+#
+# The remaining columns are described below:
+# 
+# c means either that a regular file has a different checksum or that a symlink, device, or special file has a changed value.
+# s means the size of a regular file is different and will be updated by the file transfer.
+# t or T:
+# t means the modification time is different and is being updated to the sender's value
+# T means that the modification time will be set to the transfer time
+# p means the permissions are different and are being updated to the sender's value
+# o means the owner is different and is being updated to the sender's value
+# g means the group is different and is being updated to the sender's value
+# . unused
+#
+# The following columns may not be present, depending on your transfer options
+# 
+# a means that the ACL information changed
+# x means that the extended attribute information changed
+
+DEBUG=0;
+function mysync
+{
+for DEST in $TO; do
+    SERVER=${DEST%:*}
+    SERVER=${SERVER#*@}
+    if [ "$DESC" == "" ]; then
+        DESC=$SERVER;
+    fi
+    if [ "$ASK" == "Y" ]; then
+        echo "Update $DESC ? [ENTER to update, ESC to skip] "
+        read -s -n1 DOIT
+    else
+        DOIT=""
+    fi
+    if [ "$DOIT" != $'\e' ]; then
+        if [ "$DEBUG" == 0 ]; then
+            echo >> $LOG.$SERVER
+            echo "##############################################################" >> $LOG.$SERVER
+            date >> $LOG.$SERVER
+            echo "##############################################################" >> $LOG.$SERVER
+            echo >> $LOG.$SERVER
+        else 
+            ROPTS="$ROPTS --dry-run -v"
+        fi
+        CMD="rsync $ROPTS $FROM $DEST"
+        RES=$(eval $CMD)
+        if [ "$DEBUG" == 0 ]; then
+            echo "$RES" >> $LOG.$SERVER
+        fi
+        echo "$RES"
+    fi
+done
+}

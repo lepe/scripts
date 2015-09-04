@@ -1,0 +1,206 @@
+#!/usr/bin/perl -w
+
+# Modified by A.Lepe
+# v.0.9 : Added image support (mime and display)
+# v.1.0 : Execute bash, perl or php codes
+
+#To install: 
+#perl -MCPAN -e shell
+# > install HTTP::Daemon
+# > install Config::Simple
+
+#export PERL5LIB=/usr/local/share/perl/5.14.2/
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use HTTP::Daemon;
+use HTTP::Response;
+use HTTP::Status;
+use POSIX qw/ WNOHANG /;
+use Config::Simple;
+
+use constant HOSTNAME => qx{hostname};
+
+my %O;
+my $d;
+
+my $config_file = shift || 'websrv.cfg';
+
+if ( -e $config_file ) {
+    tie %O, "Config::Simple", $config_file;
+} else {
+    %O = (
+        'host' => `ip route get 8.8.8.8 | head -1 | cut -d' ' -f8`,
+        'port' => 8080,
+        'clients' => 5,
+        'max-childs' => 1000,
+    );
+}
+$d = HTTP::Daemon->new(
+    LocalAddr => $O{'host'},
+    LocalPort => $O{'port'},
+    Reuse => 1,
+) or die "Can't start http listener at $O{'host'}:$O{'port'}";
+
+print "Started HTTP listener at " . $d->url . "\n";
+
+my %chld;
+
+if ($O{'clients'}) {
+    $SIG{CHLD} = sub {
+        # checkout finished children
+        while ((my $kid = waitpid(-1, WNOHANG)) > 0) {
+            delete $chld{$kid};
+        }
+    };
+}
+
+while (1) {
+    if ($O{'clients'}) {
+        # prefork all at once
+        for (scalar(keys %chld) .. $O{'clients'} - 1 ) {
+            my $pid = fork;
+
+            if (!defined $pid) { # error
+                die "Can't fork for http child $_: $!";
+            }
+            if ($pid) { # parent
+                $chld{$pid} = 1;
+            }
+            else { # child
+                $_ = 'DEFAULT' for @SIG{qw/ INT TERM CHLD /};
+                http_child($d);
+                exit;
+            }
+        }
+
+        sleep 1;
+    }
+    else {
+        http_child($d);
+    }
+
+}
+
+sub http_child {
+    my $d = shift;
+
+    my $i;
+    my $html;
+    my $img;
+    my %FORM;
+
+    while (++$i < $O{'max-childs'}) {
+        my $c = $d->accept or last;
+        my $r = $c->get_request(1) or last;
+
+        print Dumper($r->uri);
+
+        $c->autoflush(1);
+
+        print sprintf("[%s] %s %s\n", $c->peerhost, $r->method, $r->uri->as_string);
+
+        if($r->method eq "POST") {
+            %FORM = $r->uri->query_form($r->content); #POST is not working...
+        } elsif($r->method eq "GET") {
+            %FORM = $r->uri->query_form();
+        } else {
+            print "Warning: $r->method method is not supported";
+        }
+        my $file = substr($r->uri->path, 1);
+
+        print Dumper(\%FORM);
+
+        # Automatic find index file
+        if($file eq '') {
+            my @indexes = ('index.html' , 'index.htm' , 'index');
+            foreach my $index (@indexes) {
+                if (-e $index) {
+                    $file = $index;
+                }
+            }
+        }
+        for($file) { 
+            if (-e $_) {
+                if (/\.(jpe?g|png|gif|pdf|ico)$/i) {
+                    my $len = -s $file;
+                    my $content;
+                    open($img, $file) or die "cannot open file";
+                    binmode($img);
+                    #print "Length : $len\n";
+                    while(my $line = <$img>) {
+                       $content .= $line;
+                    }
+                    close($img);                
+                    _http_response_raw($c, { content_type => &getMime($file), content_length => $len }, $content);
+                } elsif (/\.(html?|css|js|txt|json)$/i) {
+                    open($html, "<", $file) or die "cannot open file";
+                    _http_response($c, { content_type => &getMime($file) }, <$html>);
+                } elsif (/\.(sh|pl|php)$/i || /^(?:(?!\.).)*$/) {
+                    $html = `$file`;
+                    _http_response($c, { content_type => 'text/plain' }, $html);
+                }
+            } else {
+                _http_error($c, RC_NOT_FOUND);
+            }
+        }
+        $c->close();
+        undef $c;
+    }
+}
+
+sub _http_error {
+    my ($c, $code, $msg) = @_;
+    $c->send_error($code, $msg);
+}
+
+sub _http_response {
+    my $c = shift;
+    my $options = shift;
+
+    $c->send_response(
+        HTTP::Response->new(
+            RC_OK,
+            undef,
+            [
+                'Content-Type' => $options->{content_type},
+                #'Cache-Control' => 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0',
+                #'Pragma' => 'no-cache',
+                #'Expires' => 'Thu, 01 Dec 1994 16:00:00 GMT',
+            ],
+            join("\n", @_),
+        )
+    );
+}
+sub _http_response_raw {
+    my $c = shift;
+    my $options = shift;
+
+    $c->send_response(
+        HTTP::Response->new(
+            RC_OK,
+            undef,
+            [
+                'Content-Type' => $options->{content_type},
+                'Content-Length' => $options->{content_length},
+            ],
+            @_,
+        )
+    );
+}
+sub getMime {
+    my $file = shift;
+    return "text/css" if ($file =~ /\.css$/i);
+    return "text/html" if ($file =~ /\.[s]?(htm|html)$/i);
+    return "text/plain" if ($file =~ /\.(asc|text|txt)/i);
+    return "image/jpeg" if ($file =~ /\.(jpg|jpeg)/i);
+    return "image/gif" if ($file =~ /\.gif/i);
+    return "image/png" if ($file =~ /\.png/i);
+    return "image/x-icon" if ($file =~ /\.ico/i);
+    return "application/javascript" if ($file =~ /\.js$/i);
+    return "application/json" if ($file =~ /\.json$/i);
+    return "application/pdf" if ($file =~ /\.pdf/i);
+    return "application/octet-stream";
+}

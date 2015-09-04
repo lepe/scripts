@@ -1,0 +1,154 @@
+#!/usr/bin/perl
+
+#Not working for subdomains
+#TODO: use cache
+#DO it parallely
+
+use strict;
+use warnings;
+use 5.010;
+use Net::DNS::Nameserver;
+use Net::DNS ();
+use Domain::PublicSuffix qw( );
+
+sub reply_handler {
+    my ($qname, $qclass, $qtype, $peerhost,$query,$conn) = @_;
+    my ($rcode, @ans, @auth, @add);
+
+    print "Received query [ $qname ] from $peerhost\n";
+    #$query->print;
+
+    if ($qtype eq "A") {
+		my $res = Net::DNS::Resolver->new;
+		my $res_ip = "0.0.0.0";
+
+		##foreach my $name_server ('8.8.8.8', '208.67.222.222', '8.26.56.26', '199.85.126.30') { #TODO: move to a file
+		foreach my $name_server ('8.26.56.26', '199.85.126.30', '8.8.8.8') { #TODO: move to a file
+			print "\n --------- $name_server -------------\n";
+			$res->nameservers($name_server);
+
+			# 0) extract domain from subdomain (if any)
+			state $parser = Domain::PublicSuffix->new();
+			my $root = $parser->get_root_domain( $qname );
+			if($root) {
+				print "ROOT found: $root \n";
+			} else {
+				print "ERROR: Root Domain NOT found.\n";
+				$root = $qname;
+			}
+			# 1) get NS from domain: 
+			#my $nserv = qx("dig +short -t ns $qname | head -n 1");
+			my $nserv;
+			$query = $res->query($root, "NS");
+			if($query) {
+				foreach my $rr (grep { $_->type eq 'NS' } $query->answer) {
+					$nserv = $rr->nsdname;
+					print "NS found: $nserv\n";
+					last;
+				}
+			}
+			if(!$nserv) {
+				print "ERROR: NameServer NOT found.\n";
+				next;
+			}
+
+			my $query = $res->search($qname);
+			my $result;
+			if ($query) {
+				foreach my $rr ($query->answer) {
+					if ($rr->type eq "A") {
+						$result = $rr->address;
+						print "FOUND: $result\n";
+						last;
+					 }
+				}
+			}
+			if ($result) {
+				# = The returning IP address must match $result
+				# 2) get HOSTNAME of IP:
+				my $target = join('.', reverse split(/\./, $result)).".in-addr.arpa";
+				$query = $res->query($target, "PTR");
+				if($query) {
+					my $host;
+					foreach my $rr (grep { $_->type eq 'PTR' } $query->answer) {
+						$host = $rr->rdatastr;
+						print "HOST found: $host\n";
+						last;
+					}
+					if(!$host) {
+					  print "ERROR: Host NOT found for $result .\n";
+					  next;
+					}
+					# 3) query that NS for the specific host: (other way: host $qname $nserv)
+					#my $ip = qx("dig +short \@$nserv $qname");
+					# use the nameserver now
+
+					my $query = $res->search($nserv);
+					my $nserv_ip;
+					if ($query) {
+					  foreach my $rr (grep { $_->type eq 'A' } $query->answer) {
+						  $nserv_ip = $rr->address;
+						  print "NS Address: $nserv_ip \n";
+						  last;
+					  }
+					}
+					if(!$nserv) {
+					  print "ERROR: NS $nserv IP NOT found.\n";
+					  next;
+					}
+
+					my $res2 = Net::DNS::Resolver->new;
+					$res2->nameservers($nserv_ip);
+					$query = $res2->search($host);
+					if ($query) {
+						foreach my $rr (grep { $_->type eq 'A' } $query->answer) {
+							$res_ip = $rr->address;
+							print "IP found: $res_ip\n";
+							last;
+						}
+					}
+					if($res_ip eq "0.0.0.0") {
+						print "ERROR: HOSTNAME $host has no IP address.\n";
+						next;
+					}
+
+					printf "%-20s", $name_server;
+					say $result;
+					if($res_ip ne $result) {
+						print "ERROR: $res_ip AND $result DON'T match.\n";
+						next;
+					}
+				} else {
+					print "ERROR: $result DON'T resolves to a host.\n";
+					next;
+				}
+			} else {
+				print "ERROR: Domain NOT found.\n";
+				next;
+			}
+		}
+		if ($res_ip ne "0.0.0.0") {
+			my ($ttl, $rdata) = (3600, $res_ip);
+			my $rr = new Net::DNS::RR("$qname $ttl $qclass $qtype $rdata");
+			push @ans, $rr;
+			print "NOERROR\n";
+			$rcode = "NOERROR";
+		} else {
+			print "NXDOMAIN\n";
+			$rcode = "NXDOMAIN";
+		}
+    } else {
+		$rcode = "NOTIMP";
+    }
+
+    # mark the answer as authoritive (by setting the 'aa' flag
+    return ($rcode, \@ans, \@auth, \@add, { aa => 1 });
+}
+
+my $ns = new Net::DNS::Nameserver(
+    LocalPort    => 53,
+    ReplyHandler => \&reply_handler,
+    Verbose      => 0
+    ) || die "couldn't create nameserver object\n";
+
+$ns->main_loop;

@@ -1,0 +1,30 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use 5.010;
+ 
+use Net::DNS ();
+ 
+my $hostname = $ARGV[0];
+ 
+my $res = Net::DNS::Resolver->new;
+foreach my $name_server ('8.8.8.8', '208.67.222.222', '8.26.56.26', '199.85.126.10', '199.85.126.30') {
+	printf "%-20s", $name_server;
+	$res->nameservers($name_server);
+	my $query = $res->search($hostname);
+	
+	my $result;
+	if ($query) {
+		foreach my $rr ($query->answer) {
+			if ($rr->type eq "A") {
+				$result = $rr->address;
+				last;
+			 }
+		}
+	}
+	if ($result && $result ne "92.242.144.50" && $result ne "54.200.75.96") {
+		say $result;
+	} else {
+		say 'FAILED';
+	}
+}

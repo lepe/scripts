@@ -1,0 +1,3 @@
+#!/bin/sh
+# By Alberto Lepe (adapted)
+echo $1 | iconv -f UTF-8 -t EUC-JP | kakasi -Ha -Ka -Ja -Ea -ka -s | sed 's/ESC<2E>.//g'
