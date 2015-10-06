@@ -68,7 +68,7 @@ if (scalar(keys(%different)) > 0) {
 }
 if (scalar(keys(%origin)) > 0) {
 	print "----------------------------------\n";
-	print " MISSING IN $file_one\n";
+	print " MISSING IN $file_two\n";
 	print "----------------------------------\n";
 	foreach (sort keys %origin) {
 		print " + $_ : $origin{$_}\n";
@@ -76,7 +76,7 @@ if (scalar(keys(%origin)) > 0) {
 }
 if (scalar(keys(%missing)) > 0) {
 	print "----------------------------------\n";
-	print " MISSING IN $file_two\n";
+	print " MISSING IN $file_one\n";
 	print "----------------------------------\n";
 	foreach (sort keys %missing) {
 		print " - $_ : $missing{$_}\n";
