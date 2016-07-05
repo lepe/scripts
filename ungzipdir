@@ -1,0 +1,19 @@
+#!/bin/bash
+if [[ -f $1 ]]; then
+	base=${1%%.*}
+	file=$(basename "$1");
+	dir=$(basename "$base");
+	if [[ ! -d $base ]]; then
+		mkdir "$base"
+		cd "$base"
+		cd ..
+		tar -xvf "$file"
+		if [[ $? == 0 && -d "$dir" ]]; then
+			rm -f "$file"
+		fi
+	else
+		echo "Directory $base already exists. Nothing done."
+	fi
+else
+	echo "Usage: $0 file.tgz";
+fi
