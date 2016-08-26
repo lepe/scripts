@@ -79,11 +79,11 @@ echo "Checking root access..."
     ##################### CREATE PASS PRASE #######################
     dd if=/dev/urandom count=1 2> /dev/null | tr -dc [:graph:] | head -c 128 > $DOMAIN.pss
     echo "Generating KEY..."
-    openssl genrsa -des3 -out $DOMAIN.key -passout file:$DOMAIN.pss $LENGTH
+    openssl genrsa -out $DOMAIN.key -passout file:$DOMAIN.pss $LENGTH
     echo "Generating PEM..."
     openssl rsa -in $DOMAIN.key -passin file:$DOMAIN.pss -out $DOMAIN.pem 
     echo "Generating CSR..."
-    openssl req -new -key $DOMAIN.key -passin file:$DOMAIN.pss -config $DOMAIN.cfg -out $DOMAIN.csr
+    openssl req -new -sha256 -key $DOMAIN.key -passin file:$DOMAIN.pss -config $DOMAIN.cfg -out $DOMAIN.csr
     echo "Don't forget to backup the .pss file and delete it from here!"
     ##################### CREATE REQUEST #######################
   else
