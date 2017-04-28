@@ -3,7 +3,7 @@
 # Script to create web server keys                        #
 # By Alberto Lepe (www.alepe.com, www.support.ne.jp)      #
 # Created: 19VIII2010                                     #
-# Version: 14VII2011                                      #
+# Version: 31III2017
 ###########################################################
 
 DOMAIN=$1
@@ -16,7 +16,14 @@ REQ_CITY="City Name"
 REQ_STATE="State"
 REQ_ORG="Someorg LTD"
 REQ_UNIT="Some Org.Unit"
+REQ_EMAIL="admin@example.com"
+# If below set, it will be used instead of DOMAIN
+REQ_COMMON_NAME=""
 #---------------------------------------------------
+
+if [[ $REQ_COMMON_NAME == "" ]]; then
+	REQ_COMMON_NAME=$DOMAIN
+fi
 
 REQUIREPSS=0  #Turn to 1 if you need the certificate to use a PSS to be read.
 
@@ -69,11 +76,12 @@ echo "Checking root access..."
 
   echo "[ req_distinguished_name ]" >> $DOMAIN.cfg
   echo "C                      = $REQ_COUNTRY" >> $DOMAIN.cfg
-  echo "ST                     = $REQ_CITY" >> $DOMAIN.cfg
-  echo "L                      = $REQ_STATE" >> $DOMAIN.cfg
+  echo "ST                     = $REQ_STATE" >> $DOMAIN.cfg
+  echo "L                      = $REQ_CITY" >> $DOMAIN.cfg
   echo "O                      = $REQ_ORG" >> $DOMAIN.cfg
   echo "OU                     = $REQ_UNIT" >> $DOMAIN.cfg
-  echo "CN                     = $DOMAIN" >> $DOMAIN.cfg
+  echo "CN                     = $REQ_COMMON_NAME" >> $DOMAIN.cfg
+  echo "emailAddress           = $REQ_EMAIL" >> $DOMAIN.cfg
 
   if [ $REQUIREPSS == 1 ]; then
     ##################### CREATE PASS PRASE #######################
