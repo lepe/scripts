@@ -3,11 +3,16 @@
 # Script to create web server keys                        #
 # By Alberto Lepe (www.alepe.com, www.support.ne.jp)      #
 # Created: 19VIII2010                                     #
-# Version: 31III2017
+# Version: 28VI2017										  #
 ###########################################################
 
+# Domain name: e.g. example.com
 DOMAIN=$1
+# Key length: 1024, 2048, 4096, ... (Default: 2048)
 LENGTH=$2
+# Used for alternative name. If '+' will be *.domain. 
+# If empty "www.domain" will be used, 
+# otherwise it can be set manually, like: "www2.domain"
 WILDCARD=$3
 
 #---------------------  To edit --------------------
@@ -22,7 +27,7 @@ REQ_COMMON_NAME=""
 #---------------------------------------------------
 
 if [[ $REQ_COMMON_NAME == "" ]]; then
-	REQ_COMMON_NAME=$DOMAIN
+    REQ_COMMON_NAME=$DOMAIN
 fi
 
 REQUIREPSS=0  #Turn to 1 if you need the certificate to use a PSS to be read.
@@ -32,7 +37,7 @@ if [ "$DOMAIN" = "" ]; then
     echo "$0 example.com 1024 [+|ALT]"
     echo "[OPTIONAL] Where '1024' is the key length. Default is 2048"
     echo "[OPTIONAL] Where '+' is to add any subdomain into the CSR (*.domain.tld)"
-	echo "           Where ALT is any alternative domain name"
+    echo "           Where ALT is any alternative domain name"
     exit 1
 fi
 
@@ -45,22 +50,23 @@ echo "Checking root access..."
 
 ##################### KEY LENGTH ##############################
     if [ "$LENGTH" = "" ]; then LENGTH=2048; fi
-
 ##################### WILD CARD ##############################
-    if [ "$WILDCARD" = "+" ]; then 
-        WILDCARD="*."; 
-		ALTNAME="$WILDCARD$DOMAIN";
+    if [[ $WILDCARD == "" ]]; then
+        ALTNAME="www.$DOMAIN";
+    elif [ "$WILDCARD" = "+" ]; then
+        WILDCARD="*.";
+        ALTNAME="$WILDCARD$DOMAIN";
     elif [ "$WILDCARD" != "" ]; then
-		ALTNAME="$WILDCARD";
+        ALTNAME="$WILDCARD";
     fi
-
 
 ##################### CREATE CONFIG FILE #####################
   echo "[ req ]" > $DOMAIN.cfg
   echo "default_bits           = $LENGTH" >> $DOMAIN.cfg
   echo "default_keyfile        = $DOMAIN.key" >> $DOMAIN.cfg
   echo "default_days           = 730" >> $DOMAIN.cfg
-  echo "distinguished_name     = req_distinguished_name" >> $DOMAIN.cfg
+  echo "default_md             = sha256" >> $DOMAIN.cfg
+  echo "distinguished_name     = req_dn" >> $DOMAIN.cfg
   echo "string_mask            = nombstr"  >> $DOMAIN.cfg
   echo "prompt                 = no" >> $DOMAIN.cfg
 
@@ -68,13 +74,14 @@ echo "Checking root access..."
   echo "encrypt_key            = no" >> $DOMAIN.cfg
   fi
 
-  if [ "$WILDCARD" != "" ]; then
-  echo "req_extensions         = v3_req # Extensions to add to certificate request" >> $DOMAIN.cfg
+  echo "req_extensions         = v3_req" >> $DOMAIN.cfg
   echo "[ v3_req ]" >> $DOMAIN.cfg
-  echo "subjectAltName         = DNS:$ALTNAME" >> $DOMAIN.cfg
-  fi 
+  echo "subjectAltName         = @req_alt" >> $DOMAIN.cfg
 
-  echo "[ req_distinguished_name ]" >> $DOMAIN.cfg
+  echo "[ req_alt ]" >> $DOMAIN.cfg
+  echo "DNS.1                  = $ALTNAME" >> $DOMAIN.cfg
+
+  echo "[ req_dn ]" >> $DOMAIN.cfg
   echo "C                      = $REQ_COUNTRY" >> $DOMAIN.cfg
   echo "ST                     = $REQ_STATE" >> $DOMAIN.cfg
   echo "L                      = $REQ_CITY" >> $DOMAIN.cfg
@@ -89,7 +96,7 @@ echo "Checking root access..."
     echo "Generating KEY..."
     openssl genrsa -out $DOMAIN.key -passout file:$DOMAIN.pss $LENGTH
     echo "Generating PEM..."
-    openssl rsa -in $DOMAIN.key -passin file:$DOMAIN.pss -out $DOMAIN.pem 
+    openssl rsa -in $DOMAIN.key -passin file:$DOMAIN.pss -out $DOMAIN.pem
     echo "Generating CSR..."
     openssl req -new -sha256 -key $DOMAIN.key -passin file:$DOMAIN.pss -config $DOMAIN.cfg -out $DOMAIN.csr
     echo "Don't forget to backup the .pss file and delete it from here!"
@@ -98,6 +105,5 @@ echo "Checking root access..."
     openssl req -batch -config $DOMAIN.cfg -newkey rsa:$LENGTH -out $DOMAIN.csr
   fi
 
-rm $DOMAIN.cfg
 cat $DOMAIN.csr
 chmod 400 $DOMAIN.*
