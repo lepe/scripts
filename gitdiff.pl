@@ -8,7 +8,7 @@ if(!defined $auto_add) {
 	$auto_add = "";
 }
 
-my @mods = `git status --porcelain 2>/dev/null | grep '^ M ' | awk '{ print \$2 }'`;
+my @mods = `git status --porcelain 2>/dev/null | grep '^ M ' | cut -c4-`;
 chomp(@mods);
 for my $mod (@mods) {
 	my $diff = `git diff -b $mod 2>/dev/null`;
