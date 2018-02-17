@@ -12,8 +12,11 @@ STOREIN="/backup/sql/"
 PREMOTE=""
 RSYNCPR="--stats -irpt"
 CHARSET="UTF8"
+# To create special user for backup:
+# GRANT LOCK TABLES, SELECT ON *.* TO backup@localhost IDENTIFIED BY '*********';
+USER="backup"
 PASSWRD="************"
-MYSQLPW=" -uroot -p${PASSWRD} "
+MYSQLPW=" -u${USER} -p${PASSWRD} "
 MYSQLPM=" --hex-blob --comments=false --default-character-set=${CHARSET} "
 
 LASTLOG=7
