@@ -2,40 +2,38 @@
 #############################################
 #
 # This code create a backup of files
-# using hard links to use as less space as
-# possible. It will keep one copy per day
-# which can be browsed as normal files.
-# Recommended: Execute this script in cron.daily
+# and keep a history of modifications
+# which can be browsable
 #
 # Created: Dec 27,2014
-# Last Modified: September 16, 2015
-#
-# Example structure:
-# /mnt/work  <-- CURRENT: The directory that you want to backup
-# /mnt/back  <-- BACKDIR: The directory where you want to store your backups
-# /mnt/back/2015-09-16/  <--- Will create a daily snapshot of your files
+# Last Modified: May 28th, 2016
 #
 #############################################
-# Language Settings
-export LANGUAGE=en
-export LANG=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
 
-# Main directory (write access) <-- it can be a remote address as well
-CURRENT="/mnt/work";
-# Directory where to store the backup
-BACKDIR="/mnt/back";
-# Where to store "rsync" logs
-LOG="/var/log/backer/";
+echo "Start:" >> /tmp/time
+date >> /tmp/time
 
+export LANGUAGE=ja
+export LANG=ja_JP.UTF-8
+export LC_CTYPE=ja_JP.UTF-8
+
+BACKDIR="/backup/daily";
+# If History directory exists, overwrite it
+OVERWRITE=0
+LOG="/var/log/backer";
+# Main directory (to backup)
+CURRENT="/var/www/ONLINE";
+MAX_DAYS_KEEP=15
+
+#NOTE: BACKUP and HISTORY must be in the same file system where this script reside
 # Progresive history (read-only)
-HISTORY="$BACKDIR/";
+HISTORY="$BACKDIR";
 # Yesterday's version (read-only)
-BACKUP="$BACKDIR/";
+BACKUP="$BACKDIR";
 
 #Main sync params:
 # "Remote" means from CURRENT to BACKUP (it may be located in the same fs system, but is called "remote")
-RSYNC="-Aogplrt --delete";
+RSYNC="-Aogplrt --delete --exclude-from=/etc/backer.exclude"
 
 #Update BACKUP version with CURRENT and log changes:
 DATE=`date +%Y-%m-%d`
@@ -75,8 +73,8 @@ function permits
 function ifmkdir
 {
     if [[ ! -d "$1" ]]; then
-        mkdir -p "$1"
-        permits "$1" single
+        mkdir -p "$1/"
+        permits "$1/" single
         if [[ $DEBUG == 1 ]]; then
             echo "Creating Directory: $1";
         fi
@@ -97,9 +95,28 @@ if [[ "$PREVIOUS" == "" ]]; then
 fi
 HIST_PREVIOUS="$HISTORY/$PREVIOUS";
 echo "Logging changes..."
-rsync -n $RSYNC "$CURRENT/" "$HIST_TODAY/" > $LOG/$DATE.log
+rsync -n $RSYNC "$CURRENT/" "$HIST_PREVIOUS/" &> $LOG/$DATE.log
 gzip -9 -f $LOG/$DATE.log
-
-echo "Backing up..."
+#echo "Unlocking:" (no need. taken care by samba)
+#chattr -R -i "$HIST_PREVIOUS/"
+echo "Linking..."
 rsync $RSYNC --link-dest="$HIST_PREVIOUS/" "$CURRENT/" "$HIST_TODAY/"
+#echo "Locking:"
+#chattr -R +i "$HIST_PREVIOUS/"
+#chattr -R +i "$CURRENT/"
+echo "Stop:" >> /tmp/time
+date >> /tmp/time
+#Proceed to remove very old directories
+OLDER_DATE=`date +%Y%m%d -d "$MAX_DAYS_KEEP days ago"`;
+find $HISTORY -maxdepth 1 -type d | while read dir_to_test; do
+    x=$(basename "$dir_to_test")
+    if [[ $OLDER_DATE > ${x:0:4}${x:5:2}${x:8:2} ]]; then
+        rm -rvf "$dir_to_test"
+        rm -f $LOG/$x.log.gz
+        # Temporally, run dry
+        echo "$dir_to_test" > /root/deleted.log
+    fi
+done
+#Protect against modifications by www-data
+#chown -R root $HIST_TODAY/
 exit 1
