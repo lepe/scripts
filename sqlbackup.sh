@@ -13,7 +13,7 @@ PREMOTE=""
 RSYNCPR="--stats -irpt"
 CHARSET="UTF8"
 # To create special user for backup:
-# GRANT LOCK TABLES, SELECT ON *.* TO backup@localhost IDENTIFIED BY '*********';
+# GRANT LOCK TABLES, SHOW DATABASES, SHOW VIEW, SELECT ON *.* TO backup@localhost IDENTIFIED BY '*********';
 USER="backup"
 PASSWRD="************"
 MYSQLPW=" -u${USER} -p${PASSWRD} "
@@ -95,7 +95,7 @@ if [ $SEPARATEDBAKUPS = "yes" -a "$1" != "all" ]; then
     fi
     for DB in $DATABASES
     do
-        if [[ "$DB" != "mysql" ]]; then
+        if [[ "$DB" != "mysql" && "$DB" != "information_schema" && "$DB" != "sys" && "$DB" != "performance_schema" ]]; then
             echo -ne "Processing [$DB] ... "
             mysqldump ${MYSQLPW} ${MYSQLPM} ${DB} -r ${STOREIN}$DB.tmp
             sqlBackup $DB
