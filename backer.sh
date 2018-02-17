@@ -10,20 +10,29 @@
 #
 #############################################
 
+# ---------------- CONFIG ----------------
+
+# Where to store backup files
+BACKDIR="/backup/daily";
+# Main directory (to backup)
+CURRENT="/var/www";
+# How many days to keep
+MAX_DAYS_KEEP=15
+# If History directory exists, overwrite it
+OVERWRITE=0
+# Where to store logs
+LOG="/var/log/backer";
+
+# Note: you can set exclude rules at: /etc/backer.exclude
+
+#############################################
+
 echo "Start:" >> /tmp/time
 date >> /tmp/time
 
 export LANGUAGE=ja
 export LANG=ja_JP.UTF-8
 export LC_CTYPE=ja_JP.UTF-8
-
-BACKDIR="/backup/daily";
-# If History directory exists, overwrite it
-OVERWRITE=0
-LOG="/var/log/backer";
-# Main directory (to backup)
-CURRENT="/var/www/ONLINE";
-MAX_DAYS_KEEP=15
 
 #NOTE: BACKUP and HISTORY must be in the same file system where this script reside
 # Progresive history (read-only)
@@ -32,6 +41,9 @@ HISTORY="$BACKDIR";
 BACKUP="$BACKDIR";
 
 #Main sync params:
+if [[ ! -f /etc/backer.exclude ]]; then
+    touch /etc/backer.exclude
+fi
 # "Remote" means from CURRENT to BACKUP (it may be located in the same fs system, but is called "remote")
 RSYNC="-Aogplrt --delete --exclude-from=/etc/backer.exclude"
 
