@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # @author: A.Lepe
 # @since: 2015-09-04
-# run: apt --installed list in each computer
+# run: apt list --installed in each computer
 # name them: compare_one.lst and compare_two.lst
 
 use strict;
@@ -21,7 +21,7 @@ if($num_args > 2) {
 } 
 if ( ! -e $file_one ) {
 	print  "$file_one does not exists\n";
-	print  "run: '/usr/bin/apt --installed list | tail -n+2 > compare.lst' in each computer\n";
+	print  "run: '/usr/bin/apt list --installed | tail -n+2 > compare.lst' in each computer\n";
 	print  "and name them: compare_one.lst and compare_two.lst\n";
 	print  "or specify two parameters to this command. For example:\n";
 	print  "./compare_ubuntu_apt.pl that_server.lst this_server.lst\n";
@@ -30,7 +30,7 @@ if ( ! -e $file_one ) {
 }
 if ( ! -e $file_two ) {
 	print "$file_two does not exists, assuming THIS computer\n";
-	`/usr/bin/apt --installed list | tail -n+2 > $file_two`
+	`/usr/bin/apt list --installed | tail -n+2 > $file_two`
 }
 
 open my $info1, $file_one or die "Could not open $file_one: $!";
