@@ -32,11 +32,9 @@ for i in "${red[@]}"
 do
     test=$(find "$directory" -name "$i")
     if [[ $test != "" ]]; then
-        echo
-        echo "#####################[ DANGER ]###########################"
-        echo "$test"
-        echo "##########################################################"
-        echo
+        for f in $test; do
+            echo "[ DANGER ] $f"
+        done
         ret_code=2
     fi
 done
@@ -44,11 +42,7 @@ done
 echo "Searching for obfuscated includes..."
 test=$(find "$directory" -name "*.php" -exec egrep -l "@include.*\\\x[0-9]" {} \;)
 if [[ $test != "" ]]; then
-    echo
-    echo "#####################[ DANGER ]###########################"
-    echo "$test"
-    echo "##########################################################"
-    echo
+    echo "[ DANGER ] $test"
     ret_code=2
 fi
 
@@ -56,23 +50,18 @@ echo "Searching for obfuscated code..."
 for f in $(find "$directory" -name "*.php" -exec grep -l "GLOBALS" {} \;); do
     test=$(egrep -l "(\\\x[0-9]+){5}" "$f")
     if [[ $test != "" ]]; then
-        echo
-        echo "#####################[ DANGER ]###########################"
-        echo "$test"
-        echo "##########################################################"
-        echo
+        echo "[ DANGER ] $test"
         ret_code=2
     fi
 done
 
 echo "Searching for encoded code..."
-for f in $(find "$directory" -name "*.php" -exec egrep -l "\w{1000}" {} \;); do
-    echo
-    echo "#####################[ DANGER ]###########################"
-    echo "$f"
-    echo "##########################################################"
-    echo
-    ret_code=2
+for f in $(find "$directory" -name "*.php"); do
+    test=$(cat $f | tr -d '\r' | tr -d '\n' | grep -v "\-----BEGIN" | egrep "[a-zA-Z0-9\/+]{1000}")
+    if [[ $test != "" ]]; then
+        echo "[ DANGER ] $f"
+        ret_code=2
+    fi
 done
 
 # Be sure there are no php in /upload/
@@ -80,11 +69,7 @@ echo "Searching for PHP files inside upload directory..."
 for d in $(find "$directory" -type d -name "upload*"); do
     test=$(find "$d" -name "*.php")
     if [[ $test != "" ]]; then
-        echo
-        echo "#####################[ DANGER ]###########################"
-        echo "$test"
-        echo "##########################################################"
-        echo
+        echo "[ DANGER ] $test"
         ret_code=2
     fi
 done
@@ -92,22 +77,14 @@ done
 echo "Searching for inline zip files ..."
 test=$(find "$directory" -name "*.php" -exec egrep -l "gzinflate\(base64_decode" {} \;)
 if [[ $test != "" ]]; then
-    echo
-    echo "#####################[ DANGER ]###########################"
-    echo "$test"
-    echo "##########################################################"
-    echo
+    echo "[ DANGER ] $test"
     ret_code=2
 fi
 
 echo "Searching for Injected code ..."
 test=$(find "$directory" -name "*.php" -exec egrep -l "user_agent_to_filter|#TurtleScanner#|liveupdates.host|\"file test okay\"" {} \;)
 if [[ $test != "" ]]; then
-    echo
-    echo "#####################[ DANGER ]###########################"
-    echo "$test"
-    echo "##########################################################"
-    echo
+    echo "[ DANGER ] $test"
     ret_code=2
 fi
 
@@ -116,11 +93,7 @@ for i in "${yellow[@]}"
 do
     test=$(find "$directory" -name "$i")
     if [[ $test != "" ]]; then
-        echo
-        echo "#####################[ WARNING ]##########################"
-        echo "$test"
-        echo "##########################################################"
-        echo
+        echo "[ WARNING ] $test"
         if [[ $ret_code == 0 ]]; then
             ret_code=1
         fi
