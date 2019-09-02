@@ -57,10 +57,16 @@ done
 
 echo "Searching for encoded code..."
 for f in $(find "$directory" -name "*.php"); do
-    test=$(cat $f | tr -d '\r' | tr -d '\n' | grep -v "\-----BEGIN" | egrep "[a-zA-Z0-9\/+]{1000}")
+    test=$(cat $f | tr -d '\r' | tr -d '\n' | egrep -v "\-----BEGIN|data:image/" | egrep "[a-zA-Z0-9\/+]{1000}")
     if [[ $test != "" ]]; then
-        echo "[ DANGER ] $f"
-        ret_code=2
+        danger=$(echo $test | grep "strrev");
+        if [[ $danger != "" ]]; then
+            echo "[ DANGER ] $f"
+            ret_code=2            
+        else 
+            echo "[ WARNING ] $f"
+            ret_code=1
+        fi
     fi
 done
 
