@@ -48,10 +48,17 @@ fi
 
 echo "Searching for obfuscated code..."
 for f in $(find "$directory" -name "*.php" -exec grep -l "GLOBALS" {} \;); do
-    test=$(egrep -l "(\\\x[0-9]+){5}" "$f")
+    test=$(egrep -l "(\\\x[0-9A-E]+){5}" "$f")
     if [[ $test != "" ]]; then
         echo "[ DANGER ] $test"
         ret_code=2
+    fi
+done
+for f in $(find "$directory" -name "*.php"); do
+    test=$(egrep -l "(\\\x[0-9A-E]+){5}" "$f")
+    if [[ $test != "" ]]; then
+        echo "[ WARNING ] $test"
+        ret_code=1
     fi
 done
 
