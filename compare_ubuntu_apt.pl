@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 # @author: A.Lepe
 # @since: 2015-09-04
+# @version: 2020-04-11
 # run: apt list --installed in each computer
 # name them: compare_one.lst and compare_two.lst
 
@@ -39,21 +40,27 @@ open my $info2, $file_two or die "Could not open $file_two: $!";
 my (%origin, %different, %missing);
 
 while( my $line1 = <$info1>)  { 
-	my ($pkg, $unused, $version) = split(/\/| /, $line1);
-	$origin{$pkg} = $version;
+    chomp($line1);
+    if($line1 ne "") {
+        my ($pkg, $unused, $version) = split(/\/| /, $line1);
+        $origin{$pkg} = $version;
+    }
 }
 while( my $line2 = <$info2>)  {   
-	my ($pkg, $unused, $version) = split(/\/| /, $line2);
-    if ( $origin{$pkg} ) {
-		if( $origin{$pkg} eq $version ) {
-			#Do nothing here...
-		} else {
-			$different{$pkg} = $origin{$pkg} . " -> " . $version;
-		}
-		delete ( $origin{$pkg} );
-	} else {
-	    $missing{$pkg} = $version;
-	}
+    chomp($line2);
+    if($line2 ne "") {
+        my ($pkg, $unused, $version) = split(/\/| /, $line2);
+        if ( $origin{$pkg} ) {
+            if( $origin{$pkg} eq $version ) {
+                #Do nothing here...
+            } else {
+                $different{$pkg} = $origin{$pkg} . " -> " . $version;
+            }
+            delete ( $origin{$pkg} );
+        } else {
+            $missing{$pkg} = $version;
+        }
+    }
 }
 close $info1;
 close $info2;
