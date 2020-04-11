@@ -32,10 +32,10 @@ if($content) {
         if(@files > 0) {
             foreach my $file (@files) {
                 my $config = read_file($file);
-                my ($password) = $config =~ /^password=(.*)/m;
+                my ($password) = $config =~ /password=(.*)/m;
                 my ($name) = $config =~ /^name=(.*)/m;
                 my ($host) = $config =~ /^server=(.*)/m;
-                my ($user) = $config =~ /^username=(.*)/m;
+                my ($user) = $config =~ /username=(.*)/m;
                 my $pass_bin = decode_base64($password);
                 my $pass_plain = $des->decrypt( $pass_bin );
                 if($pass_plain) {
